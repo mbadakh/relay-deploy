@@ -1,0 +1,37 @@
+version: 0.2
+
+env:
+  shell: bash
+
+phases:
+  build:
+    commands:
+      - set -euo pipefail
+      - umask 077
+      - test "${DEPLOY_BUCKET:-}" != ""
+      - '[[ "${CUSTOMER_KMS_KEY_ARN:-}" =~ ^arn:(aws|aws-us-gov|aws-cn):kms:[a-z0-9-]+:[0-9]{12}:key/[A-Za-z0-9-]+$ ]]'
+      - '[[ "${DEPLOY_BUNDLE_KEY:-}" =~ ^deploy-bundles/[A-Za-z0-9._/-]+\.tar\.gz$ ]]'
+      - '[[ "${DEPLOY_BUNDLE_VERSION:-}" =~ ^[A-Za-z0-9._~+/=-]{1,1024}$ ]]'
+      - '[[ "${DEPLOY_BUNDLE_SHA256:-}" =~ ^[0-9a-f]{64}$ ]]'
+      - '[[ "${DEPLOY_CONTEXT_KEY:-}" =~ ^deploy-context/[A-Za-z0-9._/-]+\.json$ ]]'
+      - '[[ "${DEPLOY_CONTEXT_VERSION:-}" =~ ^[A-Za-z0-9._~+/=-]{1,1024}$ ]]'
+      - '[[ "${DEPLOY_CONTEXT_SHA256:-}" =~ ^[0-9a-f]{64}$ ]]'
+      - '[[ "${GIT_REVISION:-}" =~ ^[0-9a-f]{40}$ ]]'
+      - work_directory="$(mktemp -d)"
+      - trap 'rm -rf "$work_directory"' EXIT
+      - aws s3api get-object --bucket "$DEPLOY_BUCKET" --key "$DEPLOY_BUNDLE_KEY" --version-id "$DEPLOY_BUNDLE_VERSION" "$work_directory/deploy.tar.gz" >/dev/null
+      - test "$(aws s3api head-object --bucket "$DEPLOY_BUCKET" --key "$DEPLOY_BUNDLE_KEY" --version-id "$DEPLOY_BUNDLE_VERSION" --query 'ServerSideEncryption' --output text)" = "aws:kms"
+      - test "$(aws s3api head-object --bucket "$DEPLOY_BUCKET" --key "$DEPLOY_BUNDLE_KEY" --version-id "$DEPLOY_BUNDLE_VERSION" --query 'SSEKMSKeyId' --output text)" = "$CUSTOMER_KMS_KEY_ARN"
+      - test "$(aws s3api head-object --bucket "$DEPLOY_BUCKET" --key "$DEPLOY_BUNDLE_KEY" --version-id "$DEPLOY_BUNDLE_VERSION" --query 'Metadata.sha256' --output text)" = "$DEPLOY_BUNDLE_SHA256"
+      - test "$(aws s3api head-object --bucket "$DEPLOY_BUCKET" --key "$DEPLOY_BUNDLE_KEY" --version-id "$DEPLOY_BUNDLE_VERSION" --query 'Metadata."git-sha"' --output text)" = "$GIT_REVISION"
+      - echo "$DEPLOY_BUNDLE_SHA256  $work_directory/deploy.tar.gz" | sha256sum --check --status
+      - aws s3api get-object --bucket "$DEPLOY_BUCKET" --key "$DEPLOY_CONTEXT_KEY" --version-id "$DEPLOY_CONTEXT_VERSION" "$work_directory/terraform-output.json" >/dev/null
+      - test "$(aws s3api head-object --bucket "$DEPLOY_BUCKET" --key "$DEPLOY_CONTEXT_KEY" --version-id "$DEPLOY_CONTEXT_VERSION" --query 'ServerSideEncryption' --output text)" = "aws:kms"
+      - test "$(aws s3api head-object --bucket "$DEPLOY_BUCKET" --key "$DEPLOY_CONTEXT_KEY" --version-id "$DEPLOY_CONTEXT_VERSION" --query 'SSEKMSKeyId' --output text)" = "$CUSTOMER_KMS_KEY_ARN"
+      - test "$(aws s3api head-object --bucket "$DEPLOY_BUCKET" --key "$DEPLOY_CONTEXT_KEY" --version-id "$DEPLOY_CONTEXT_VERSION" --query 'Metadata.sha256' --output text)" = "$DEPLOY_CONTEXT_SHA256"
+      - echo "$DEPLOY_CONTEXT_SHA256  $work_directory/terraform-output.json" | sha256sum --check --status
+      - mkdir "$work_directory/bundle"
+      - tar -tzf "$work_directory/deploy.tar.gz" > "$work_directory/archive-members"
+      - '! grep -Eq "(^/|(^|/)\.\.(/|$))" "$work_directory/archive-members"'
+      - tar -xzf "$work_directory/deploy.tar.gz" -C "$work_directory/bundle" --no-same-owner --no-same-permissions
+      - bash "$work_directory/bundle/scripts/run_eks_codebuild.sh" "$CUSTOMER_PATH" "$work_directory/terraform-output.json" "$GITHUB_REPOSITORY" "$GIT_REVISION"

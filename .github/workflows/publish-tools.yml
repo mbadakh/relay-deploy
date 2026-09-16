@@ -1,0 +1,36 @@
+name: Publish reviewed deployment tools
+on:
+  push:
+    branches: [main]
+    paths: ['ci/Dockerfile.tools', '.github/workflows/publish-tools.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  publish:
+    if: ${{ vars.PUBLIC_ECR_PUBLISH_ROLE_ARN != '' }}
+    runs-on: ${{ fromJSON(vars.RELAY_RUNNER_LABELS || '["self-hosted","linux","x64","relay-local"]') }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
+        with:
+          role-to-assume: ${{ vars.PUBLIC_ECR_PUBLISH_ROLE_ARN }}
+          aws-region: us-east-1
+          allowed-account-ids: '038173667561'
+      - name: Build only the reviewed public-dependency Dockerfile and publish
+        run: |
+          set -euo pipefail
+          export DOCKER_CONFIG="$RUNNER_TEMP/public-tools-auth"
+          mkdir -m 700 -p "$DOCKER_CONFIG"
+          trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+          docker run --rm -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_SESSION_TOKEN \
+            "$(cat tools-image.txt)" aws ecr-public get-login-password --region us-east-1 | \
+            docker login public.ecr.aws --username AWS --password-stdin
+          image="public.ecr.aws/m0z0w6q1/relay-deploy-tools:sha-$GITHUB_SHA"
+          docker build --platform linux/amd64 -f ci/Dockerfile.tools -t "$image" ci
+          docker push "$image"
+          echo "Published $image; review its digest before changing tools-image.txt." >> "$GITHUB_STEP_SUMMARY"

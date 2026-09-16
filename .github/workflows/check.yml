@@ -1,0 +1,26 @@
+name: Deployment checks
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ${{ fromJSON(vars.RELAY_RUNNER_LABELS || '["self-hosted","linux","x64","relay-local"]') }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Check terminal scripts, pricing boundaries and Terraform
+        run: |
+          set -euo pipefail
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/workspace" -w /workspace "$(cat tools-image.txt)" bash -ec '
+            python3 -m compileall -q scripts local
+            python3 -m unittest discover -s tests -v
+            bash -n relay scripts/*.sh
+            terraform -chdir=modules/relay-stack init -backend=false -input=false
+            terraform -chdir=modules/relay-stack validate
+          '
+          docker compose config --quiet

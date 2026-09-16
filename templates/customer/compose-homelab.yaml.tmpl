@@ -1,0 +1,166 @@
+name: relay-{{CUSTOMER_SLUG}}
+
+services:
+  postgres:
+    image: "{{ECR_REGISTRY}}/{{CUSTOMER_SLUG}}/relay-postgres@{{POSTGRES_IMAGE_DIGEST}}"
+    restart: unless-stopped
+    env_file:
+      - /run/relay/postgres.env
+    environment:
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    cap_add: ["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: "{{AWS_REGION}}"
+        awslogs-group: "/relay/{{CUSTOMER_SLUG}}/application"
+        awslogs-stream: postgres
+
+  relay:
+    image: "{{ECR_REGISTRY}}/{{CUSTOMER_SLUG}}/relay-server@{{SERVER_IMAGE_DIGEST}}"
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:3001"
+    env_file:
+      - /run/relay/server.env
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      TRUST_PROXY: "1"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+      - /app/uploads:size=1g,mode=0750,uid=1000,gid=1000
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then(response => process.exit(response.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: "{{AWS_REGION}}"
+        awslogs-group: "/relay/{{CUSTOMER_SLUG}}/application"
+        awslogs-stream: relay
+
+  keycloak:
+    image: "{{ECR_REGISTRY}}/{{CUSTOMER_SLUG}}/relay-keycloak@{{KEYCLOAK_IMAGE_DIGEST}}"
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    command: ["start", "--import-realm", "--proxy-headers=xforwarded", "--http-enabled=true"]
+    env_file:
+      - /run/relay/keycloak.env
+    environment:
+      JAVA_OPTS_KC_HEAP: "-XX:MaxRAMPercentage=40 -XX:InitialRAMPercentage=20"
+      KC_HTTP_RELATIVE_PATH: "/auth"
+      KC_HOSTNAME: "{{PUBLIC_ORIGIN}}/auth"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+      - keycloak-quarkus:/opt/keycloak/lib/quarkus
+      - /opt/relay/keycloak/realm:/opt/keycloak/data/import:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: "{{AWS_REGION}}"
+        awslogs-group: "/relay/{{CUSTOMER_SLUG}}/application"
+        awslogs-stream: keycloak
+
+  caddy:
+    image: "{{ECR_REGISTRY}}/{{CUSTOMER_SLUG}}/relay-caddy@{{CADDY_IMAGE_DIGEST}}"
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      relay:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    cap_add: ["NET_BIND_SERVICE"]
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: "{{AWS_REGION}}"
+        awslogs-group: "/relay/{{CUSTOMER_SLUG}}/application"
+        awslogs-stream: caddy
+
+  coturn:
+    image: "{{ECR_REGISTRY}}/{{CUSTOMER_SLUG}}/relay-coturn@{{TURN_IMAGE_DIGEST}}"
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - /run/relay/server.env
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - >-
+        exec turnserver --listening-port=3478 --min-port=49152 --max-port=65535
+        --fingerprint --lt-cred-mech --realm=turn.{{DOMAIN_NAME}}
+        --user="$${TURN_USERNAME}:$${TURN_CREDENTIAL}"
+        --external-ip="$${TURN_EXTERNAL_IP}" --no-multicast-peers
+        --no-tls --log-file=stdout --pidfile=/tmp/turnserver.pid
+        --stale-nonce=600
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /var/lib/coturn:size=64m,mode=0700,uid=65534,gid=65534
+    user: "65534:65534"
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    cap_add: ["NET_BIND_SERVICE"]
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: "{{AWS_REGION}}"
+        awslogs-group: "/relay/{{CUSTOMER_SLUG}}/application"
+        awslogs-stream: coturn
+
+configs:
+  caddyfile:
+    file: ./Caddyfile
+
+volumes:
+  postgres-data:
+    name: "relay-{{CUSTOMER_SLUG}}-postgres-data"
+  keycloak-data:
+  keycloak-quarkus:
+    name: "relay-{{CUSTOMER_SLUG}}-keycloak-quarkus-{{KEYCLOAK_IMAGE_ID}}"
+  caddy-data:
+    name: "relay-{{CUSTOMER_SLUG}}-caddy-data"
+  caddy-config:
+    name: "relay-{{CUSTOMER_SLUG}}-caddy-config"

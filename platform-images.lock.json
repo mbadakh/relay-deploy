@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "images": {
+    "coturn": {
+      "source": "public.ecr.aws/m0z0w6q1/relay-coturn",
+      "version": "4.18.0-r0",
+      "digest": "sha256:bbefd3e1fdfdc0d58770fe01b581fd8b00d9f3a5580d00acb77cf719a6bc78e3"
+    },
+    "caddy": {
+      "source": "public.ecr.aws/m0z0w6q1/relay-caddy",
+      "version": "2.10.2-alpine",
+      "digest": "sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d"
+    },
+    "postgres": {
+      "source": "public.ecr.aws/m0z0w6q1/relay-postgres",
+      "version": "16.15-alpine3.24",
+      "digest": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685"
+    }
+  }
+}

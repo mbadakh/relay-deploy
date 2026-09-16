@@ -1,0 +1,9 @@
+{{- if not .Values.customer.slug }}{{ fail "customer.slug is required" }}{{ end -}}
+{{- if not .Values.customer.appHost }}{{ fail "customer.appHost is required" }}{{ end -}}
+{{- if not .Values.customer.authHost }}{{ fail "customer.authHost is required" }}{{ end -}}
+{{- if or (not .Values.images.relay.repository) (not .Values.images.relay.digest) }}{{ fail "a digest-pinned Relay image is required" }}{{ end -}}
+{{- if or (not .Values.images.keycloak.repository) (not .Values.images.keycloak.digest) }}{{ fail "a digest-pinned Keycloak image is required" }}{{ end -}}
+{{- if ne .Values.database.caBundleUrl "https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem" }}{{ fail "database.caBundleUrl must use the reviewed AWS RDS trust store" }}{{ end -}}
+{{- if not (regexMatch "^[a-f0-9]{64}$" .Values.database.caBundleSha256) }}{{ fail "database.caBundleSha256 must pin the AWS RDS CA bundle" }}{{ end -}}
+{{- if and (ne (int .Values.relay.replicaCount) 1) (not .Values.relay.scaleReady) }}{{ fail "Relay replicaCount must remain 1 until this release is certified scale-ready" }}{{ end -}}
+{{- if and .Values.autoscaling.enabled (not .Values.relay.scaleReady) }}{{ fail "Relay autoscaling requires a scale-ready release attestation" }}{{ end -}}

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "version": "{{APPLICATION_VERSION}}",
+  "source": "{{RELEASE_MANIFEST_SOURCE}}",
+  "sourceCommit": "{{SOURCE_COMMIT}}",
+  "platforms": {{RELEASE_PLATFORMS_JSON}},
+  "clients": {{RELEASE_CLIENTS_JSON}},
+  "scaleReady": {{SCALE_READY_RELEASE}},
+  "images": {
+    "server": {
+      "source": "{{SERVER_IMAGE_SOURCE}}",
+      "digest": "{{SERVER_IMAGE_DIGEST}}"
+    },
+    "keycloak": {
+      "source": "{{KEYCLOAK_IMAGE_SOURCE}}",
+      "digest": "{{KEYCLOAK_IMAGE_DIGEST}}"
+    }
+  }
+}

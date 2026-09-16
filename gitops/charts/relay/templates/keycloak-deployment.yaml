@@ -1,0 +1,126 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "relay.fullname" . }}-keycloak
+  labels:
+    {{- include "relay.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.keycloak.replicaCount }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels:
+      {{- include "keycloak.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "keycloak.selectorLabels" . | nindent 8 }}
+        {{- include "relay.labels" . | nindent 8 }}
+      annotations:
+        checksum/realm: {{ include (print $.Template.BasePath "/keycloak-realm-config.yaml") . | sha256sum }}
+        {{- with .Values.keycloak.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "relay.fullname" . }}-keycloak
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 90
+      securityContext:
+        seccompProfile: { type: RuntimeDefault }
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+      initContainers:
+        - name: install-rds-ca
+          image: {{ printf "%s@%s" .Values.images.relay.repository .Values.images.relay.digest | quote }}
+          imagePullPolicy: IfNotPresent
+          command: ["node", "-e"]
+          args:
+            - |
+              const crypto = require("node:crypto");
+              const fs = require("node:fs");
+              (async () => {
+                const response = await fetch(process.env.RDS_CA_URL);
+                if (!response.ok) throw new Error(`RDS CA download failed: ${response.status}`);
+                const value = Buffer.from(await response.arrayBuffer());
+                const digest = crypto.createHash("sha256").update(value).digest("hex");
+                if (digest !== process.env.RDS_CA_SHA256) throw new Error("RDS CA digest mismatch");
+                fs.writeFileSync("/rds-ca/rds-global-bundle.pem", value, { mode: 0o444 });
+              })().catch(error => { console.error(error.message); process.exit(1); });
+          env:
+            - { name: RDS_CA_URL, value: {{ .Values.database.caBundleUrl | quote }} }
+            - { name: RDS_CA_SHA256, value: {{ .Values.database.caBundleSha256 | quote }} }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - { name: rds-ca, mountPath: /rds-ca }
+      containers:
+        - name: keycloak
+          image: {{ printf "%s@%s" .Values.images.keycloak.repository .Values.images.keycloak.digest | quote }}
+          imagePullPolicy: IfNotPresent
+          args: ["start", "--import-realm", "--health-enabled=true", "--metrics-enabled=true"]
+          ports:
+            - { name: http, containerPort: 8080, protocol: TCP }
+            - { name: management, containerPort: 9000, protocol: TCP }
+          env:
+            - { name: KC_DB, value: postgres }
+            - { name: KC_DB_URL_HOST, value: {{ .Values.database.host | quote }} }
+            - { name: KC_DB_URL_PORT, value: {{ .Values.database.port | quote }} }
+            - { name: KC_DB_URL_DATABASE, value: {{ .Values.database.keycloakDatabase | quote }} }
+            - { name: KC_DB_URL_PROPERTIES, value: "?sslmode=verify-full&sslrootcert=/etc/relay/rds-global-bundle.pem" }
+            - { name: KC_DB_USERNAME, value: {{ .Values.database.keycloakUsername | quote }} }
+            - { name: KC_HTTP_RELATIVE_PATH, value: "/auth" }
+            - { name: KC_HOSTNAME, value: {{ printf "%s/auth" .Values.customer.publicOrigin | quote }} }
+            - { name: KC_HTTP_ENABLED, value: "true" }
+            - { name: KC_PROXY_HEADERS, value: xforwarded }
+            - { name: KC_CACHE, value: ispn }
+          envFrom:
+            - secretRef: { name: {{ include "relay.fullname" . }}-keycloak-runtime }
+          readinessProbe:
+            httpGet: { path: /health/ready, port: management }
+            initialDelaySeconds: 30
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 18
+          livenessProbe:
+            httpGet: { path: /health/live, port: management }
+            initialDelaySeconds: 90
+            timeoutSeconds: 5
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.keycloak.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+            # The stock pinned image performs Quarkus augmentation on first
+            # boot. Non-root, no capabilities, NNP, and seccomp stay enforced.
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            - { name: data, mountPath: /opt/keycloak/data }
+            - { name: realm, mountPath: /opt/keycloak/data/import, readOnly: true }
+            - { name: rds-ca, mountPath: /etc/relay, readOnly: true }
+      volumes:
+        - name: tmp
+          emptyDir: { sizeLimit: 256Mi }
+        - name: data
+          emptyDir: { sizeLimit: 1Gi }
+        - name: realm
+          configMap: { name: {{ include "relay.fullname" . }}-realm }
+        - name: rds-ca
+          emptyDir: { sizeLimit: 1Mi }
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              {{- include "keycloak.selectorLabels" . | nindent 14 }}

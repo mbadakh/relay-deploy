@@ -1,0 +1,165 @@
+name: relay-self-hosted
+services:
+  init:
+    image: public.ecr.aws/m0z0w6q1/relay-deploy-tools@sha256:21075e7440dd7ad084c0ae317bbb0436a3f4fef18b1b1d8a68aa14515a333961
+    platform: linux/amd64
+    user: 0:0
+    command:
+    - python3
+    - /bootstrap/init.py
+    environment:
+      RELAY_TERMINAL_RELEASE_READY: 'false'
+      RELAY_PUBLIC_URL: ${RELAY_PUBLIC_URL:-http://localhost:8080}
+      RELAY_ADMIN_EMAIL: ${RELAY_ADMIN_EMAIL:-admin@example.invalid}
+      RELAY_TURN_URL: ${RELAY_TURN_URL:-turn:127.0.0.1:3478?transport=udp}
+    volumes:
+    - config:/run/relay
+    - storage_data:/storage
+    - &id003
+      type: bind
+      source: ./local
+      target: /bootstrap
+      read_only: true
+    restart: 'no'
+  db:
+    restart: unless-stopped
+    logging: &id001
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    image: public.ecr.aws/m0z0w6q1/relay-postgres@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+    environment:
+      POSTGRES_USER: relay_admin
+      POSTGRES_DB: relay
+      POSTGRES_PASSWORD_FILE: /run/relay/db-password
+    entrypoint:
+    - sh
+    - -ec
+    - cp /run/relay/database.sql /docker-entrypoint-initdb.d/relay.sql; chmod 644
+      /docker-entrypoint-initdb.d/relay.sql; exec docker-entrypoint.sh postgres
+    volumes:
+    - db_data:/var/lib/postgresql/data
+    - &id002
+      type: volume
+      source: config
+      target: /run/relay
+      read_only: true
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U relay_admin -d relay
+      interval: 5s
+      timeout: 5s
+      retries: 30
+  storage:
+    restart: unless-stopped
+    logging: *id001
+    image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    user: 1000:1000
+    entrypoint:
+    - /bin/sh
+    - /bootstrap/entrypoint.sh
+    - storage
+    - minio
+    - server
+    - /data
+    volumes:
+    - storage_data:/data
+    - *id002
+    - *id003
+    depends_on:
+      init:
+        condition: service_completed_successfully
+  keycloak:
+    restart: unless-stopped
+    logging: *id001
+    image: public.ecr.aws/m0z0w6q1/relay-keycloak@sha256:6a7217a100bd3e5de4063a27a538ef999a3c5a88c4b4ec0ffc0a642aee7b2597
+    entrypoint:
+    - /bin/sh
+    - /bootstrap/entrypoint.sh
+    - keycloak
+    - /opt/keycloak/bin/kc.sh
+    - start
+    - --import-realm
+    volumes:
+    - *id002
+    - *id003
+    - type: volume
+      source: config
+      target: /opt/keycloak/data/import
+      read_only: true
+    depends_on:
+      db:
+        condition: service_healthy
+  relay:
+    restart: unless-stopped
+    logging: *id001
+    image: public.ecr.aws/m0z0w6q1/relay-server@sha256:45870b1378e70a4a3b814e4e91ca29407c2ca862398974ca2a3de9d602d97ea3
+    entrypoint:
+    - /bin/sh
+    - /bootstrap/entrypoint.sh
+    - relay
+    - node
+    - server/index.js
+    environment:
+      NODE_ENV: production
+    volumes:
+    - uploads:/app/uploads
+    - *id002
+    - *id003
+    depends_on:
+      db:
+        condition: service_healthy
+      storage:
+        condition: service_started
+      keycloak:
+        condition: service_started
+    healthcheck:
+      test:
+      - CMD
+      - node
+      - -e
+      - fetch('http://127.0.0.1:3001/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 30
+  web:
+    restart: unless-stopped
+    logging: *id001
+    image: public.ecr.aws/m0z0w6q1/relay-caddy@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+    ports:
+    - ${RELAY_BIND_ADDRESS:-127.0.0.1}:${RELAY_HTTP_PORT:-8080}:80
+    volumes:
+    - ./local/Caddyfile:/etc/caddy/Caddyfile:ro
+    - caddy_data:/data
+    - caddy_config:/config
+    depends_on:
+      relay:
+        condition: service_healthy
+  turn:
+    restart: unless-stopped
+    logging: *id001
+    image: public.ecr.aws/m0z0w6q1/relay-coturn@sha256:bbefd3e1fdfdc0d58770fe01b581fd8b00d9f3a5580d00acb77cf719a6bc78e3
+    command:
+    - -c
+    - /run/relay/turn.conf
+    volumes:
+    - *id002
+    ports:
+    - ${RELAY_BIND_ADDRESS:-127.0.0.1}:3478:3478/udp
+    - ${RELAY_BIND_ADDRESS:-127.0.0.1}:3478:3478/tcp
+    - ${RELAY_BIND_ADDRESS:-127.0.0.1}:49160-49200:49160-49200/udp
+    depends_on:
+      init:
+        condition: service_completed_successfully
+volumes:
+  config: {}
+  db_data: {}
+  storage_data: {}
+  uploads: {}
+  caddy_data: {}
+  caddy_config: {}

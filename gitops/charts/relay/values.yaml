@@ -1,0 +1,76 @@
+customer:
+  slug: ""
+  region: ""
+  appHost: ""
+  authHost: ""
+
+images:
+  relay:
+    repository: ""
+    digest: ""
+  keycloak:
+    repository: ""
+    digest: ""
+
+serviceAccounts:
+  relay:
+    annotations: {}
+  keycloak:
+    annotations: {}
+
+secrets:
+  clusterSecretStore: aws-secrets-manager
+  relayRuntimeSecretArn: ""
+  keycloakRuntimeSecretArn: ""
+
+database:
+  host: ""
+  port: 5432
+  relayDatabase: relay
+  relayUsername: relay_app
+  keycloakDatabase: keycloak
+  keycloakUsername: keycloak_app
+  caBundleUrl: "https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem"
+  caBundleSha256: "e5bb2084ccf45087bda1c9bffdea0eb15ee67f0b91646106e466714f9de3c7e3"
+
+storage:
+  mediaBucket: ""
+  region: ""
+
+relay:
+  replicaCount: 1
+  scaleReady: false
+  sessionAudience: relay-api
+  sessionTtlSeconds: 604800
+  resources:
+    requests: { cpu: 500m, memory: 1Gi, ephemeral-storage: 2Gi }
+    limits: { cpu: "2", memory: 3Gi, ephemeral-storage: 8Gi }
+  podAnnotations: {}
+
+keycloak:
+  replicaCount: 2
+  realm: relay
+  registrationAllowed: true
+  emailVerificationEnabled: false
+  resources:
+    requests: { cpu: 750m, memory: 1536Mi }
+    limits: { cpu: "2", memory: 3Gi }
+  podAnnotations: {}
+
+service:
+  # Stable NodePorts registered behind the Terraform-owned, WAF-protected ALB.
+  relayNodePort: 30080
+  keycloakNodePort: 30081
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 65
+
+podDisruptionBudget:
+  keycloakMinAvailable: 1
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

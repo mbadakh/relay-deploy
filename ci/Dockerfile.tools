@@ -1,0 +1,25 @@
+FROM python:3.12.11-slim-bookworm@sha256:c00fc7b44d844b6da22861ec24af43968a5200eac4ec607b4725d585165d6b49
+ARG AWS_CLI_VERSION=2.27.63
+ARG AWS_CLI_SHA256=de632ed1625a9220280fbdb09299abbeb60a3fab2f23d5b035eeb5b5f14e6d8f
+ARG TERRAFORM_VERSION=1.10.5
+ARG CRANE_VERSION=0.20.3
+RUN apt-get update && apt-get install -y --no-install-recommends bash ca-certificates curl git unzip jq && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir PyYAML==6.0.2
+RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-${AWS_CLI_VERSION}.zip" -o /tmp/aws.zip \
+ && echo "$AWS_CLI_SHA256  /tmp/aws.zip" | sha256sum -c - \
+ && unzip -q /tmp/aws.zip -d /tmp && /tmp/aws/install && rm -rf /tmp/aws /tmp/aws.zip
+RUN curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" -o /tmp/terraform.zip \
+ && curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_SHA256SUMS" -o /tmp/sums \
+ && digest="$(awk -v name="terraform_${TERRAFORM_VERSION}_linux_amd64.zip" '$2==name {print $1}' /tmp/sums)" \
+ && test -n "$digest" && echo "$digest  /tmp/terraform.zip" | sha256sum -c - \
+ && unzip -q /tmp/terraform.zip terraform -d /usr/local/bin && rm /tmp/terraform.zip /tmp/sums
+RUN curl -fsSL "https://github.com/google/go-containerregistry/releases/download/v${CRANE_VERSION}/go-containerregistry_Linux_x86_64.tar.gz" -o /tmp/crane.tar.gz \
+ && curl -fsSL "https://github.com/google/go-containerregistry/releases/download/v${CRANE_VERSION}/checksums.txt" -o /tmp/sums \
+ && digest="$(awk '$2=="go-containerregistry_Linux_x86_64.tar.gz" {print $1}' /tmp/sums)" \
+ && test -n "$digest" && echo "$digest  /tmp/crane.tar.gz" | sha256sum -c - \
+ && tar -xzf /tmp/crane.tar.gz -C /usr/local/bin crane && rm /tmp/crane.tar.gz /tmp/sums
+RUN groupadd -g 1000 relay && useradd -m -u 1000 -g 1000 relay
+ENV AWS_PAGER="" TF_IN_AUTOMATION=true PYTHONDONTWRITEBYTECODE=1
+WORKDIR /workspace
+USER 1000:1000
+CMD ["python3", "scripts/deploy.py"]

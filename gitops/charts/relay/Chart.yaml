@@ -1,0 +1,7 @@
+apiVersion: v2
+name: relay
+description: Relay and Keycloak customer workload (infrastructure is managed by Terraform)
+type: application
+version: 0.1.0
+appVersion: "0.0.0"
+kubeVersion: ">=1.29.0-0"

@@ -1,0 +1,8 @@
+.relay/
+.terraform/
+*.tfstate*
+*.tfplan
+*.tfvars.json
+.env
+__pycache__/
+.venv/

@@ -1,0 +1,65 @@
+{
+  "realm": "relay",
+  "enabled": true,
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "verifyEmail": false,
+  "sslRequired": "external",
+  "users": [
+    {
+      "username": "${RELAY_INITIAL_ADMIN_USERNAME}",
+      "email": "${RELAY_INITIAL_ADMIN_EMAIL}",
+      "firstName": "Relay",
+      "lastName": "Administrator",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${RELAY_INITIAL_ADMIN_PASSWORD}",
+          "temporary": true
+        }
+      ],
+      "clientRoles": {
+        "realm-management": ["realm-admin"]
+      }
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "relay",
+      "name": "Relay",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "{{PUBLIC_ORIGIN}}/oauth/callback",
+        "relay://oauth/callback"
+      ],
+      "webOrigins": ["{{PUBLIC_ORIGIN}}"],
+      "protocol": "openid-connect",
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "{{PUBLIC_ORIGIN}}/*##relay://oauth/logout"
+      },
+      "protocolMappers": [
+        {
+          "name": "Relay audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "relay",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ]
+}

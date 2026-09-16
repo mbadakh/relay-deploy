@@ -1,0 +1,34 @@
+name: Adopt public production release
+on:
+  schedule:
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: deployment-release-lock
+  cancel-in-progress: false
+jobs:
+  sync:
+    if: ${{ vars.PUBLIC_RELEASE_SYNC_ENABLED == 'true' }}
+    runs-on: ${{ fromJSON(vars.RELAY_RUNNER_LABELS || '["self-hosted","linux","x64","relay-local"]') }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Resolve and verify public release digests
+        run: |
+          set -euo pipefail
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/workspace" -w /workspace "$(cat tools-image.txt)" bash -ec '
+            python3 scripts/sync_public_release.py
+            python3 -m unittest discover -s tests -v
+          '
+          docker compose config --quiet
+      - name: Commit updated immutable image locks directly
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- release.lock.json compose.yaml; then exit 0; fi
+          git config user.name 'relay-release-bot'
+          git config user.email 'relay-release-bot@users.noreply.github.com'
+          git add release.lock.json compose.yaml
+          git commit -m 'chore: pin latest public production release'
+          git push origin HEAD:main

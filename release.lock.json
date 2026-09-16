@@ -1,0 +1,39 @@
+{
+  "version": "2.4.52",
+  "scaleReady": false,
+  "platforms": [
+    "linux/amd64",
+    "linux/arm64"
+  ],
+  "images": {
+    "server": {
+      "source": "public.ecr.aws/m0z0w6q1/relay-server",
+      "digest": "sha256:45870b1378e70a4a3b814e4e91ca29407c2ca862398974ca2a3de9d602d97ea3"
+    },
+    "keycloak": {
+      "source": "public.ecr.aws/m0z0w6q1/relay-keycloak",
+      "digest": "sha256:6a7217a100bd3e5de4063a27a538ef999a3c5a88c4b4ec0ffc0a642aee7b2597"
+    }
+  },
+  "clients": {
+    "web": {
+      "apiEndpointMode": "same-origin",
+      "portable": true
+    },
+    "android": {
+      "portable": true,
+      "apiEndpointMode": "user-selected-https-origin",
+      "defaultApiEndpoint": "https://r3l4y.dev",
+      "pushTransport": {
+        "provider": "fcm",
+        "clientProjectEmbedded": true,
+        "customerBackendRequiresMatchingProjectCredentials": true,
+        "requiredForBackgroundAndTerminatedDelivery": true
+      },
+      "limitation": "The universal APK can use any verified HTTPS Relay origin, but background and terminated-app notifications work only when that customer backend has controlled FCM credentials for the Firebase project embedded in the signed APK."
+    }
+  },
+  "schemaVersion": 1,
+  "sourceCommit": "35ffce95fdedd5fd5aee0aed194e587f6ce2c329",
+  "terminalReady": false
+}

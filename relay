@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")"
+command -v docker >/dev/null || { echo 'Install Docker Desktop (macOS/Windows) or Docker Engine with Compose, then rerun.' >&2; exit 1; }
+image=$(tr -d '\r\n' < tools-image.txt)
+[[ "$image" =~ ^public\.ecr\.aws/[a-z0-9/._-]+@sha256:[a-f0-9]{64}$ ]] || { echo 'Invalid pinned tools image' >&2; exit 1; }
+umask 077
+mkdir -p .relay
+aws_directory="${AWS_CONFIG_DIRECTORY:-$HOME/.aws}"
+[[ "${1:-}" != aws ]] || mkdir -p "$aws_directory"
+mounts=(-v "$PWD:/workspace")
+if [[ -d "$aws_directory" ]]; then
+  access=ro
+  [[ "${1:-}" == aws ]] && access=rw
+  mounts+=(-v "$aws_directory:/tmp/relay-home/.aws:$access")
+fi
+terminal=()
+[[ -t 0 && -t 1 ]] && terminal=(-it)
+environment=(-e HOME=/tmp/relay-home -e DOCKER_CONFIG=/workspace/.relay/registry-auth -e RELAY_HOST_DIRECTORY="$PWD")
+for variable in AWS_PROFILE AWS_REGION AWS_DEFAULT_REGION AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_CA_BUNDLE; do
+  [[ ${!variable+x} ]] && environment+=(-e "$variable")
+done
+if [[ "${1:-}" == aws ]]; then
+  shift
+  exec docker run --rm --platform linux/amd64 "${terminal[@]}" --user "$(id -u):$(id -g)" "${mounts[@]}" "${environment[@]}" "$image" aws "$@"
+fi
+exec docker run --rm --platform linux/amd64 "${terminal[@]}" --user "$(id -u):$(id -g)" "${mounts[@]}" "${environment[@]}" "$image" python3 scripts/deploy.py "$@"
