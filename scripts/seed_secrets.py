@@ -156,7 +156,7 @@ def main() -> int:
         runtime["TURN_EXTERNAL_IP"] = str(
             terraform_output(outputs, "home_lab_public_ip")
         )
-    runtime["KEYCLOAK_JWKS_URI"] = ("http://relay-" + str(terraform_output(outputs,"customer_slug")) + "-keycloak:8080" if terraform_output(outputs,"compute_mode")=="eks" else "http://keycloak:8080") + "/auth/realms/relay/protocol/openid-connect/certs"
+    runtime["KEYCLOAK_JWKS_URI"] = ("http://relay-" + str(terraform_output(outputs,"customer_slug")) + "-keycloak:80" if terraform_output(outputs,"compute_mode")=="eks" else "http://keycloak:8080") + "/auth/realms/relay/protocol/openid-connect/certs"
     runtime["RELAY_SELF_HOSTED"] = "true"
     runtime["PUSH_GATEWAY_URL"] = "https://push.r3l4y.dev"
     runtime["PUSH_GATEWAY_SERVER_SECRET"] = secrets.token_urlsafe(32)

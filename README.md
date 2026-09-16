@@ -55,7 +55,7 @@ No domain is required to create infrastructure. An HTTP endpoint is useful for c
 
 ## Instruction page
 
-Open [docs/index.html](docs/index.html) locally for the Local/AWS tabs, sizing controls and generated command. It makes no network requests or cloud changes. The pricing report uses the same styles as the previous web pricing page.
+Open [docs/index.html](docs/index.html) locally for the Local/AWS tabs, sizing controls and generated command. It makes no network requests or cloud changes. See example [home-lab](docs/example-home-lab-review.html) and [production](docs/example-production-review.html) review reports. The pricing report uses the same styles as the previous web pricing page.
 
 ## Notifications and the shared Android app
 
