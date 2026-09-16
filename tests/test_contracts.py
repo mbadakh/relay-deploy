@@ -7,9 +7,9 @@ from report import write_report
 import tempfile,argparse
 class ContractTests(unittest.TestCase):
  def test_origin_rejects_credentials_paths_and_http(self):
-  for value in ['http://example.com','https://x:y@example.com','https://example.com/path','https://example.com?token=secret']:
+  for value in ['http://example.com','https://example.com:8443','https://x:y@example.com','https://example.com/path','https://example.com?token=secret']:
    with self.assertRaises(ValueError):safe_origin(value)
-  self.assertEqual(safe_origin('https://chat.example.com/'),'https://chat.example.com')
+  self.assertEqual(safe_origin('https://CHAT.example.com:443/'),'https://chat.example.com')
  def test_uncertified_large_tier_rejected_before_cloud_changes(self):
   args=argparse.Namespace(non_interactive=True,home_lab=False,name='example',region='eu-central-1',users='10k',admin_email='a@example.com',public_url='',zone_id='')
   with self.assertRaisesRegex(ValueError,'not certified'):configure(args,{'Account':'123456789012'},{'version':'1.0.0','scaleReady':False})

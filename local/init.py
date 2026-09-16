@@ -9,6 +9,7 @@ origin=os.environ.get('RELAY_PUBLIC_URL','http://localhost:8080').rstrip('/')
 url=urllib.parse.urlsplit(origin)
 if url.scheme not in ['http','https'] or not url.hostname or url.username or url.password or url.path or url.query or url.fragment:
     raise SystemExit('RELAY_PUBLIC_URL must be an HTTP(S) origin without credentials or a path')
+origin=url.scheme+'://'+url.netloc.lower()
 if (root/'ready').exists():
     if (root/'origin').read_text()!=origin:raise SystemExit('Public URL changed. See docs/operations.md before changing an existing installation.')
     print('Existing installation preserved.');raise SystemExit(0)

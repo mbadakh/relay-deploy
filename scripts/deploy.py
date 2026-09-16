@@ -22,8 +22,8 @@ def ask(label,default='',choices=None):
 def safe_origin(value):
     if not value:return ''
     u=urllib.parse.urlsplit(value)
-    if u.scheme!='https' or not u.hostname or u.username or u.password or u.path not in ['', '/'] or u.query or u.fragment:raise ValueError('Public URL must be an HTTPS origin without a path or credentials')
-    return value.rstrip('/')
+    if u.scheme!='https' or not u.hostname or u.username or u.password or u.path not in ['', '/'] or u.query or u.fragment or u.port not in [None,443]:raise ValueError('Public URL must be an HTTPS origin on port 443 without a path or credentials')
+    return 'https://'+u.hostname.lower()
 def configure(args,identity,release):
     interactive=not args.non_interactive and sys.stdin.isatty()
     home=args.home_lab
