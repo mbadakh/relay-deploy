@@ -98,7 +98,7 @@ services:
   relay:
     restart: unless-stopped
     logging: *id001
-    image: public.ecr.aws/m0z0w6q1/relay-server@sha256:874e075f6454383cf4e64f0f643272464effd398b2b2a17d75e819f4f8b4db0e
+    image: public.ecr.aws/m0z0w6q1/relay-server@sha256:0878760bf63929321e8a8b2b4f3c43b0b16965802ffde24800fddb196bc56b06
     entrypoint:
     - /bin/sh
     - /bootstrap/entrypoint.sh
