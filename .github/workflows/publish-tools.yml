@@ -20,7 +20,6 @@ jobs:
         with:
           role-to-assume: ${{ vars.PUBLIC_ECR_PUBLISH_ROLE_ARN }}
           aws-region: us-east-1
-          allowed-account-ids: '038173667561'
       - name: Build only the reviewed public-dependency Dockerfile and publish
         run: |
           set -euo pipefail
@@ -30,6 +29,8 @@ jobs:
           docker run --rm -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_SESSION_TOKEN \
             "$(cat tools-image.txt)" aws ecr-public get-login-password --region us-east-1 | \
             docker login public.ecr.aws --username AWS --password-stdin
+          account=$(docker run --rm -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_SESSION_TOKEN "$(cat tools-image.txt)" aws sts get-caller-identity --query Account --output text)
+          test "$account" = 038173667561
           image="public.ecr.aws/m0z0w6q1/relay-deploy-tools:sha-$GITHUB_SHA"
           docker build --platform linux/amd64 -f ci/Dockerfile.tools -t "$image" ci
           docker push "$image"

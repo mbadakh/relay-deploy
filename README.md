@@ -1,8 +1,6 @@
 # Relay — deploy it yourself
 
-**Private preview.** This repository and its instruction page remain private until the owner approves publication. GitHub access is needed to clone it. Runtime images are downloadable from public ECR.
-
-**Release gate:** the compatible new production image is built by Relay’s release pipeline. Automated public publishing is pending approval of the narrow OIDC role. Until that image is published and adopted, `deploy` and local initialization stop with a clear message; `./relay plan ...` and the private instructions preview work now. This prevents deploying the older public image with incompatible startup/authentication behavior.
+Deploy Relay in your own AWS account or locally with Docker. The repository and instructions are public; runtime images are available from public ECR without a GitHub login.
 
 ## Local Docker
 

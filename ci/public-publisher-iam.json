@@ -2,32 +2,61 @@
   "roleName": "relay-public-image-publisher",
   "trustPolicy": {
     "Version": "2012-10-17",
-    "Statement": [{
-      "Effect": "Allow",
-      "Principal": {"Federated": "arn:aws:iam::038173667561:oidc-provider/token.actions.githubusercontent.com"},
-      "Action": "sts:AssumeRoleWithWebIdentity",
-      "Condition": {"StringEquals": {
-        "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-        "token.actions.githubusercontent.com:sub": [
-          "repo:mbadakh@32541229/relay@1350589542:ref:refs/heads/master",
-          "repo:mbadakh@32541229/relay-deploy@1373606119:ref:refs/heads/main"
-        ]
-      }}
-    }]
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Principal": {
+          "Federated": "arn:aws:iam::038173667561:oidc-provider/token.actions.githubusercontent.com"
+        },
+        "Action": "sts:AssumeRoleWithWebIdentity",
+        "Condition": {
+          "StringEquals": {
+            "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+            "token.actions.githubusercontent.com:sub": [
+              "repo:mbadakh@32541229/relay@1350589542:ref:refs/heads/master",
+              "repo:mbadakh@32541229/relay-deploy@1373606119:ref:refs/heads/main"
+            ]
+          }
+        }
+      }
+    ]
   },
   "permissionsPolicy": {
     "Version": "2012-10-17",
     "Statement": [
-      {"Effect":"Allow","Action":["ecr-public:GetAuthorizationToken"],"Resource":"*"},
-      {"Effect":"Allow","Action":["sts:GetServiceBearerToken"],"Resource":"*","Condition":{"StringEquals":{"sts:AWSServiceName":"ecr-public.amazonaws.com"}}},
-      {"Effect":"Allow","Action":["ecr-public:BatchCheckLayerAvailability","ecr-public:InitiateLayerUpload","ecr-public:UploadLayerPart","ecr-public:CompleteLayerUpload","ecr-public:PutImage","ecr-public:DescribeImages"],"Resource":[
-        "arn:aws:ecr-public::038173667561:repository/relay-server",
-        "arn:aws:ecr-public::038173667561:repository/relay-keycloak",
-        "arn:aws:ecr-public::038173667561:repository/relay-postgres",
-        "arn:aws:ecr-public::038173667561:repository/relay-caddy",
-        "arn:aws:ecr-public::038173667561:repository/relay-coturn",
-        "arn:aws:ecr-public::038173667561:repository/relay-deploy-tools"
-      ]}
+      {
+        "Effect": "Allow",
+        "Action": [
+          "ecr-public:GetAuthorizationToken"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "sts:GetServiceBearerToken"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "ecr-public:BatchCheckLayerAvailability",
+          "ecr-public:InitiateLayerUpload",
+          "ecr-public:UploadLayerPart",
+          "ecr-public:CompleteLayerUpload",
+          "ecr-public:PutImage",
+          "ecr-public:DescribeImages"
+        ],
+        "Resource": [
+          "arn:aws:ecr-public::038173667561:repository/relay-server",
+          "arn:aws:ecr-public::038173667561:repository/relay-keycloak",
+          "arn:aws:ecr-public::038173667561:repository/relay-postgres",
+          "arn:aws:ecr-public::038173667561:repository/relay-caddy",
+          "arn:aws:ecr-public::038173667561:repository/relay-coturn",
+          "arn:aws:ecr-public::038173667561:repository/relay-deploy-tools"
+        ]
+      }
     ]
   }
 }

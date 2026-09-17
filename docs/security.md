@@ -18,7 +18,7 @@ Notification payloads pass through Relay's gateway and Google FCM. The gateway a
 
 ## Open-source readiness
 
-The repository and instructions remain private for owner review. Before making either public, review Git history and generated artifacts for secrets, document a security contact, and keep public-fork jobs off the privileged local runners. Publishing source does not require publishing AWS/Firebase credentials. Public deployment images necessarily expose their packaged application code; they were explicitly requested separately from source-repository publication.
+The repository and instructions are public. Generated state and credentials remain excluded from Git. Keep public-fork jobs off the privileged local runners. Report security issues privately to mbada.khoury@gmail.com. Publishing source does not require publishing AWS/Firebase credentials. Public deployment images necessarily expose their packaged application code; they were explicitly requested separately from source-repository publication.
 
 ## Operator references
 
