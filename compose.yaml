@@ -8,7 +8,7 @@ services:
     - python3
     - /bootstrap/init.py
     environment:
-      RELAY_TERMINAL_RELEASE_READY: 'false'
+      RELAY_TERMINAL_RELEASE_READY: 'true'
       RELAY_PUBLIC_URL: ${RELAY_PUBLIC_URL:-http://localhost:8080}
       RELAY_ADMIN_EMAIL: ${RELAY_ADMIN_EMAIL:-admin@example.invalid}
       RELAY_TURN_URL: ${RELAY_TURN_URL:-turn:127.0.0.1:3478?transport=udp}
@@ -98,7 +98,7 @@ services:
   relay:
     restart: unless-stopped
     logging: *id001
-    image: public.ecr.aws/m0z0w6q1/relay-server@sha256:45870b1378e70a4a3b814e4e91ca29407c2ca862398974ca2a3de9d602d97ea3
+    image: public.ecr.aws/m0z0w6q1/relay-server@sha256:874e075f6454383cf4e64f0f643272464effd398b2b2a17d75e819f4f8b4db0e
     entrypoint:
     - /bin/sh
     - /bootstrap/entrypoint.sh
