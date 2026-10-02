@@ -1,5 +1,5 @@
 {
-  "version": "2.4.98",
+  "version": "2.4.99",
   "scaleReady": false,
   "platforms": [
     "linux/amd64",
@@ -8,7 +8,7 @@
   "images": {
     "server": {
       "source": "public.ecr.aws/m0z0w6q1/relay-server",
-      "digest": "sha256:af07ec700cc006e2f003a3edbc8f5f625bad9bafed8916e943fb319226c48515"
+      "digest": "sha256:4ceb7990c1780321ca7629dd02e59958dedd910c5864f5aab329c737a6c216fd"
     },
     "keycloak": {
       "source": "public.ecr.aws/m0z0w6q1/relay-keycloak",
@@ -36,6 +36,6 @@
     }
   },
   "schemaVersion": 1,
-  "sourceCommit": "4f4c04a73417bffd6c8867150508a02fe01db6d7",
+  "sourceCommit": "8822c0bddb791117541725b0e64b1aba6b4d9396",
   "terminalReady": true
 }
